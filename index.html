@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0f0c" />
+<title>Артиллерийский калькулятор</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="appbar">
+  <div class="appbar__row">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="16" cy="16" r="13"/>
+        <path d="M16 3v26M3 16h26"/>
+        <path d="M16 16l9-6"/>
+      </svg>
+    </div>
+    <div class="appbar__title">
+      <h1>Артиллерийский калькулятор</h1>
+      <p class="muted" id="mortar-hint">2Б14 «Поднос» · Arma 3 · Tushino</p>
+    </div>
+  </div>
+  <div class="select-wrap">
+    <label for="mortar-select">Миномёт</label>
+    <select id="mortar-select" data-testid="select-mortar">
+      <option value="2b14">2Б14 «Поднос» 82мм (60-00)</option>
+      <option value="2b11">2Б11 «Сани» 120мм (60-00)</option>
+      <option value="2b9">2Б9 «Василёк» 82мм (60-00)</option>
+      <option value="d30">2А18 Д-30 122мм (60-00)</option>
+    </select>
+  </div>
+</header>
+
+<!-- ГЛОБАЛЬНЫЙ ПРЕСЕТ ПО ДАЛЬНОСТИ И ЗАРЯДУ -->
+<section class="preset-bar" id="preset-bar">
+  <div class="preset-bar__row">
+    <label class="preset-bar__field">
+      <span>Заряд</span>
+      <select id="global-charge" data-testid="select-charge">
+        <option value="osn">Основной</option>
+        <option value="1">1-й</option>
+        <option value="2" selected>2-й</option>
+        <option value="3">3-й</option>
+        <option value="dal">Дальнобойный</option>
+      </select>
+    </label>
+    <label class="preset-bar__field preset-bar__field--dist">
+      <span>Дальность до цели, м</span>
+      <input type="number" id="global-dist" inputmode="decimal" placeholder="напр. 1200" data-testid="input-global-dist" />
+    </label>
+    <label class="preset-bar__field preset-bar__field--traj">
+      <span>Траектория</span>
+      <select id="global-trajectory" data-testid="select-trajectory">
+        <option value="mortar">Мортирная</option>
+        <option value="flat">Настильная</option>
+      </select>
+    </label>
+    <button class="primary preset-bar__apply" id="global-apply" data-testid="button-global-apply">Подставить из таблицы</button>
+  </div>
+  <div class="preset-bar__status" id="global-status" hidden></div>
+</section>
+
+<!-- РАЗЛОЖЕНИЕ БАЛЛИСТИЧЕСКОГО ВЕТРА -->
+<section class="wind-bar" id="wind-bar">
+  <button class="wind-bar__toggle" id="wind-toggle" type="button" aria-expanded="false" data-testid="button-wind-toggle">
+    <span class="wind-bar__title">Разложение баллистического ветра</span>
+    <span class="wind-bar__chev" aria-hidden="true">▾</span>
+  </button>
+  <div class="wind-bar__body" id="wind-body" hidden>
+    <div class="wind-bar__grid">
+      <div class="wind-bar__inputs">
+        <label class="wind-bar__field">
+          <span>Д<sub>ц</sub> — напр. стрельбы</span>
+          <div class="input-with-unit">
+            <input type="text" id="w-dc" inputmode="decimal" placeholder="напр. 32-00 или 192°" data-testid="input-w-dc" />
+            <select id="w-dc-unit" class="unit-toggle" data-testid="select-w-dc-unit">
+              <option value="tys">тыс</option>
+              <option value="deg">°</option>
+            </select>
+          </div>
+        </label>
+        <label class="wind-bar__field">
+          <span>Д<sub>w</sub> — откуда дует</span>
+          <div class="input-with-unit">
+            <input type="text" id="w-dw" inputmode="decimal" placeholder="напр. 21-00 или 126°" data-testid="input-w-dw" />
+            <select id="w-dw-unit" class="unit-toggle" data-testid="select-w-dw-unit">
+              <option value="tys">тыс</option>
+              <option value="deg">°</option>
+            </select>
+          </div>
+        </label>
+        <label class="wind-bar__field">
+          <span>W, м/с</span>
+          <input type="number" id="w-speed" inputmode="decimal" placeholder="напр. 6" data-testid="input-w-speed" />
+        </label>
+        <div class="wind-bar__field wind-bar__field--method">
+          <span>Метод</span>
+          <div class="seg" role="radiogroup" aria-label="Метод разложения">
+            <button type="button" class="seg__btn active" data-method="table" data-testid="button-method-table">Таблица</button>
+            <button type="button" class="seg__btn" data-method="trig" data-testid="button-method-trig">Тригон.</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="wind-bar__compass" id="wind-compass" aria-hidden="true">
+        <svg viewBox="-110 -110 220 220" width="180" height="180">
+          <!-- внешний круг и оси -->
+          <circle cx="0" cy="0" r="100" fill="none" stroke="var(--border)" stroke-width="1.2"/>
+          <circle cx="0" cy="0" r="75" fill="none" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="2 3"/>
+          <line x1="0" y1="-100" x2="0" y2="100" stroke="var(--border)" stroke-width="0.6"/>
+          <line x1="-100" y1="0" x2="100" y2="0" stroke="var(--border)" stroke-width="0.6"/>
+          <!-- риски по четверям (15-00 шаг) -->
+          <line x1="100" y1="0" x2="108" y2="0" stroke="var(--muted)" stroke-width="1"/>
+          <line x1="-100" y1="0" x2="-108" y2="0" stroke="var(--muted)" stroke-width="1"/>
+          <line x1="0" y1="100" x2="0" y2="108" stroke="var(--muted)" stroke-width="1"/>
+          <line x1="0" y1="-100" x2="0" y2="-108" stroke="var(--muted)" stroke-width="1"/>
+          <!-- подсветка сектора ветра -->
+          <path id="wind-sector" d="" fill="rgba(109, 210, 155, 0.18)" stroke="none"/>
+          <!-- подписи 0/15/30/45 -->
+          <text x="0" y="-92" text-anchor="middle" fill="var(--muted)" font-size="9" font-family="var(--mono)">0-00</text>
+          <text x="92" y="4" text-anchor="middle" fill="var(--muted)" font-size="9" font-family="var(--mono)">15</text>
+          <text x="0" y="96" text-anchor="middle" fill="var(--muted)" font-size="9" font-family="var(--mono)">30</text>
+          <text x="-92" y="4" text-anchor="middle" fill="var(--muted)" font-size="9" font-family="var(--mono)">45</text>
+          <!-- орудие (смотрит вверх = напр. стрельбы) -->
+          <g id="wind-mortar">
+            <line x1="0" y1="0" x2="0" y2="-65" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+            <polygon points="0,-75 -5,-65 5,-65" fill="var(--accent)"/>
+            <circle cx="0" cy="0" r="5" fill="var(--accent)"/>
+          </g>
+          <!-- вектор ветра (от «откуда» к центру) -->
+          <g id="wind-arrow" style="display:none">
+            <line id="wind-arrow-line" x1="0" y1="0" x2="0" y2="0" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round"/>
+            <polygon id="wind-arrow-head" points="" fill="#60a5fa"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="wind-bar__result" id="wind-result">
+        <div class="wind-bar__line"><span>A<sub>w</sub></span><strong id="w-aw">—</strong></div>
+        <div class="wind-bar__line"><span>W<sub>x</sub> (продольн.)</span><strong id="w-wx">—</strong></div>
+        <div class="wind-bar__line"><span>W<sub>z</sub> (боков.)</span><strong id="w-wz">—</strong></div>
+        <div class="wind-bar__line wind-bar__line--hint" id="w-hint"><span>&nbsp;</span></div>
+        <button class="primary wind-bar__apply" id="w-apply" data-testid="button-wind-apply" disabled>Применить к расчётам</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" role="tab" data-tab="aim" data-testid="tab-aim">Угломер</button>
+  <button class="tab" role="tab" data-tab="range" data-testid="tab-range">Дальность</button>
+  <button class="tab" role="tab" data-tab="dir" data-testid="tab-dir">Направление</button>
+  <button class="tab" role="tab" data-tab="height" data-testid="tab-height">Высоты</button>
+  <button class="tab" role="tab" data-tab="solution" data-testid="tab-solution">Итог</button>
+  <button class="tab" role="tab" data-tab="tables" data-testid="tab-tables">Таблица</button>
+</nav>
+
+<main>
+  <!-- УГЛОМЕР -->
+  <section id="panel-aim" class="panel active">
+    <h2>Расчёт угломера</h2>
+    <p class="hint">У = А<sub>ц</sub> − А<sub>тн</sub> + mil/2. Если У ≥ mil → −mil. Если У &lt; 0 → +mil. Для текущего орудия mil = 60-00 (6000).</p>
+
+    <div class="grid">
+      <label>Дирекционный угол цели А<sub>ц</sub>
+        <input type="text" id="aim-ac" inputmode="decimal" placeholder="напр. 20-00 или 2000" data-testid="input-aim-ac" />
+        <span class="sub">формат XX-XX или число (тысячные)</span>
+      </label>
+      <label>Дирекционный угол точки наводки А<sub>тн</sub>
+        <input type="text" id="aim-atn" inputmode="decimal" placeholder="напр. 10-00 или 1000" data-testid="input-aim-atn" />
+      </label>
+      <label>Дальность до цели, м (опционально)
+        <input type="number" id="aim-dist" inputmode="decimal" placeholder="напр. 1200" data-testid="input-aim-dist" />
+        <span class="sub">используется во вкладке «Итог»</span>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="aim-calc" data-testid="button-aim-calc">Рассчитать</button>
+      <button class="ghost" id="aim-reset" data-testid="button-aim-reset">Сбросить</button>
+    </div>
+
+    <div class="result" id="aim-result" hidden>
+      <div class="result__big" id="aim-out"></div>
+      <div class="result__small" id="aim-detail"></div>
+    </div>
+  </section>
+
+  <!-- ДАЛЬНОСТЬ -->
+  <section id="panel-range" class="panel">
+    <h2>Поправка по дальности</h2>
+    <p class="hint">ΔX<sub>Σ</sub> = X<sub>T</sub> + X<sub>H</sub> + X<sub>W</sub>. Знак ΔП зависит от орудия и траектории: для 2Б14/2Б11 и 2Б9 настильной — минус; для 2Б9 мортирной — плюс.</p>
+
+    <div class="grid">
+      <label>Температура воздуха, °C
+        <input type="number" id="r-temp" inputmode="decimal" placeholder="напр. 22" data-testid="input-r-temp" />
+      </label>
+      <label>Давление, hPa
+        <input type="number" id="r-press" inputmode="decimal" placeholder="напр. 1005" data-testid="input-r-press" />
+      </label>
+      <label>Скорость баллистич. ветра W, м/с
+        <input type="number" id="r-wind" inputmode="decimal" placeholder="напр. 6" data-testid="input-r-wind" />
+      </label>
+      <label>Угол ветра A<sub>w</sub> (опц.)
+        <div class="input-with-unit">
+          <input type="text" id="r-aw" inputmode="decimal" placeholder="напр. 11-00 или 66°" data-testid="input-r-aw" />
+          <select id="r-aw-unit" class="unit-toggle" data-testid="select-r-aw-unit">
+            <option value="tys">тыс</option>
+            <option value="deg">°</option>
+          </select>
+        </div>
+        <span class="sub">форматы: 11-00, 1100, 66°; если пусто — введи W<sub>x</sub> напрямую</span>
+      </label>
+      <label>W<sub>x</sub> продольный, м/с (если без A<sub>w</sub>)
+        <input type="number" id="r-wx" inputmode="decimal" placeholder="+ попутный / − встречный" data-testid="input-r-wx" />
+        <span class="sub">попутный ветер = “+”, встречный = “−”</span>
+      </label>
+      <hr class="span2"/>
+      <label>ΔX<sub>T</sub> (из таблицы)
+        <input type="number" id="r-dxt" inputmode="decimal" data-testid="input-r-dxt" />
+      </label>
+      <label>ΔX<sub>H</sub> (из таблицы)
+        <input type="number" id="r-dxh" inputmode="decimal" data-testid="input-r-dxh" />
+      </label>
+      <label>ΔX<sub>W</sub> (из таблицы)
+        <input type="number" id="r-dxw" inputmode="decimal" data-testid="input-r-dxw" />
+      </label>
+      <label>ΔX<sub>тыс</sub> (из таблицы)
+        <input type="number" id="r-dxtys" inputmode="decimal" data-testid="input-r-dxtys" />
+      </label>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="r-calc" data-testid="button-r-calc">Рассчитать</button>
+      <button class="ghost" id="r-reset" data-testid="button-r-reset">Сбросить</button>
+    </div>
+
+    <div class="result" id="r-result" hidden>
+      <div class="result__big" id="r-out"></div>
+      <div class="result__small" id="r-detail"></div>
+    </div>
+  </section>
+
+  <!-- НАПРАВЛЕНИЕ -->
+  <section id="panel-dir" class="panel">
+    <h2>Поправка по направлению</h2>
+    <p class="hint">ΔZ<sub>Σ</sub> = Z<sub>W</sub> − Z. Знак W<sub>z</sub>: слева→направо «-», справа→налево «+». Результат прибавляется к угломеру.</p>
+
+    <div class="grid">
+      <label>Скорость баллистич. ветра W, м/с
+        <input type="number" id="d-wind" inputmode="decimal" placeholder="напр. 6" data-testid="input-d-wind" />
+      </label>
+      <label>Угол ветра A<sub>w</sub> (опц.)
+        <div class="input-with-unit">
+          <input type="text" id="d-aw" inputmode="decimal" placeholder="напр. 11-00 или 66°" data-testid="input-d-aw" />
+          <select id="d-aw-unit" class="unit-toggle" data-testid="select-d-aw-unit">
+            <option value="tys">тыс</option>
+            <option value="deg">°</option>
+          </select>
+        </div>
+        <span class="sub">форматы: 11-00, 1100, 66°; если пусто — введи W<sub>z</sub> напрямую</span>
+      </label>
+      <label>W<sub>z</sub> боковой, м/с
+        <input type="number" id="d-wz" inputmode="decimal" placeholder="согласно таблице ветра" data-testid="input-d-wz" />
+        <span class="sub">используй знаки из таблицы разложения ветра</span>
+      </label>
+      <hr class="span2"/>
+      <label>ΔZ<sub>W</sub> (из таблицы)
+        <input type="number" id="d-dzw" inputmode="decimal" data-testid="input-d-dzw" />
+      </label>
+      <label>Деривация Z (из таблицы)
+        <input type="number" id="d-z" inputmode="decimal" data-testid="input-d-z" />
+      </label>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="d-calc" data-testid="button-d-calc">Рассчитать</button>
+      <button class="ghost" id="d-reset" data-testid="button-d-reset">Сбросить</button>
+    </div>
+
+    <div class="result" id="d-result" hidden>
+      <div class="result__big" id="d-out"></div>
+      <div class="result__small" id="d-detail"></div>
+    </div>
+  </section>
+
+  <!-- ВЫСОТЫ -->
+  <section id="panel-height" class="panel">
+    <h2>Поправка на разность высот</h2>
+    <p class="hint">Для мортирной траектории: П<sub>h</sub> = (h<sub>ц</sub> − h<sub>о</sub>)/100 × ΔП<sub>h</sub>. Для 2Б9 мортирной: ΔП = −П<sub>h</sub>; для 2Б9 настильной: П<sub>h</sub> = ((h<sub>ц</sub>−h<sub>о</sub>)/100 × ΔП<sub>h</sub>) + ((h<sub>ц</sub>−h<sub>о</sub>)/(0.001×S)), затем ΔП = П<sub>h</sub>.</p>
+
+    <div class="grid">
+      <label>Высота орудия h<sub>о</sub>, м
+        <input type="number" id="h-ho" inputmode="decimal" placeholder="напр. 120" data-testid="input-h-ho" />
+      </label>
+      <label>Высота цели h<sub>ц</sub>, м
+        <input type="number" id="h-hc" inputmode="decimal" placeholder="напр. 180" data-testid="input-h-hc" />
+      </label>
+      <label>ΔП<sub>h</sub> (из таблицы)
+        <input type="number" id="h-dph" inputmode="decimal" data-testid="input-h-dph" />
+      </label>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="h-calc" data-testid="button-h-calc">Рассчитать</button>
+      <button class="ghost" id="h-reset" data-testid="button-h-reset">Сбросить</button>
+    </div>
+
+    <div class="result" id="h-result" hidden>
+      <div class="result__big" id="h-out"></div>
+      <div class="result__small" id="h-detail"></div>
+    </div>
+  </section>
+
+  <!-- ИТОГ -->
+  <section id="panel-solution" class="panel">
+    <h2>Итоговое огневое решение</h2>
+    <p class="hint">Сводит все рассчитанные поправки. Сначала пройди по вкладкам выше.</p>
+
+    <div class="grid">
+      <label>Базовый прицел П<sub>0</sub> (из таблицы для дистанции)
+        <input type="number" id="s-p0" inputmode="decimal" placeholder="напр. 850" data-testid="input-s-p0" />
+      </label>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="s-calc" data-testid="button-s-calc">Собрать решение</button>
+      <button class="ghost" id="s-clear" data-testid="button-s-clear">Очистить всё</button>
+    </div>
+
+    <div class="solution" id="s-result" hidden>
+      <div class="solution__row"><span>Угломер базовый</span><b id="s-u-base">—</b></div>
+      <div class="solution__row"><span>ΔZ<sub>Σ</sub> (направление)</span><b id="s-dz">—</b></div>
+      <div class="solution__row solution__row--total"><span>Угломер итоговый</span><b id="s-u-final">—</b></div>
+      <hr/>
+      <div class="solution__row"><span>П<sub>0</sub> базовый</span><b id="s-p0-out">—</b></div>
+      <div class="solution__row"><span>ΔП дальность (T, H, W)</span><b id="s-dp-range">—</b></div>
+      <div class="solution__row"><span>ΔП высоты</span><b id="s-dp-h">—</b></div>
+      <div class="solution__row solution__row--total"><span>Прицел итоговый</span><b id="s-p-final">—</b></div>
+    </div>
+  </section>
+
+  <!-- ТАБЛИЦА -->
+  <section id="panel-tables" class="panel">
+    <h2 id="tables-title">Таблица стрельбы</h2>
+    <p class="hint">Выбери заряд и введи дальность в верхней панели — все коэффициенты подставятся автоматически. В таблице ниже можно видеть исходные данные для выбранного заряда.</p>
+
+    <div class="table-viewer">
+      <div class="table-viewer__head" id="table-viewer-head"></div>
+      <div class="table-scroll">
+        <table class="firing-table" id="firing-table"></table>
+      </div>
+    </div>
+
+    <h3 class="section-h">Пресеты (ручные)</h3>
+    <p class="hint">Если нужен ручной пресет — сохрани текущие значения вкладок «Дальность» / «Направление» / «Высоты» как отдельный набор.</p>
+    <div class="grid">
+      <label>Имя пресета
+        <input type="text" id="t-name" placeholder="напр. Заряд 3 · 1500м" data-testid="input-t-name" />
+      </label>
+    </div>
+    <div class="actions">
+      <button class="primary" id="t-save" data-testid="button-t-save">Сохранить текущие вкладки как пресет</button>
+    </div>
+    <div class="presets" id="presets-list"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span class="muted">Установить как приложение: меню браузера → «Добавить на главный экран»</span>
+</footer>
+
+<script src="tables.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  }
+</script>
+<script data-pplx-inline-edit>
+(function () {
+  if (window === window.top) return;
+
+  const allowedParentOrigins = ["https://www.perplexity.ai","https://perplexity.ai","https://testing.perplexity.ai","https://staging.perplexity.ai","https://*.preview.i.perplexity.ai","http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173","http://127.0.0.1:5173"];
+  const MAX_FONT_BYTES = 500 * 1024;
+  const MAX_TOTAL_FONT_BYTES = 2 * 1024 * 1024;
+  let scrollForwarding = false;
+  let scrollRaf = 0;
+  let trustedTopOrigin = null;
+
+  // Allow entries like "https://*.preview.i.perplexity.ai" — the wildcard
+  // matches a single DNS label (no dots), so "https://*.foo" cannot stretch
+  // across multiple labels.
+  function matchesAllowedOrigin(origin) {
+    if (!origin) return false;
+    for (const entry of allowedParentOrigins) {
+      if (!entry.includes("*")) {
+        if (entry === origin) return true;
+        continue;
+      }
+      const pattern = new RegExp(
+        "^" +
+          entry.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^.]+") +
+          "$",
+      );
+      if (pattern.test(origin)) return true;
+    }
+    return false;
+  }
+
+  // Trust decision: when the sender is same-origin-visible (event.origin is a
+  // real origin like https://www.perplexity.ai) we trust event.origin directly.
+  // When event.origin is "null" (opaque broker srcdoc), we fall back to the
+  // broker's stamped `parentOrigin` to identify the top window. The fallback
+  // is claim-only — we rely on the browser's native `targetOrigin` enforcement
+  // on the response path (see postToTrustedTop) to ensure replies can't be
+  // delivered to anyone but the actual top window of that claimed origin.
+  function getTrustedParentOrigin(event) {
+    const forwardedParentOrigin =
+      typeof event.data.parentOrigin === "string" ? event.data.parentOrigin : null;
+    const parentOrigin = event.origin === "null" ? forwardedParentOrigin : event.origin;
+    return matchesAllowedOrigin(parentOrigin) ? parentOrigin : null;
+  }
+
+  // All responses go to window.top with targetOrigin = the allowlisted origin.
+  // An attacker that iframes us inside their own null-origin broker can claim
+  // any parentOrigin they like, but the browser will drop the reply whenever
+  // the real top's origin doesn't match — so the screenshot never leaves.
+  function postToTrustedTop(message) {
+    if (!trustedTopOrigin) return;
+    try {
+      window.top.postMessage(message, trustedTopOrigin);
+    } catch (_error) {}
+  }
+
+  function inlineAll(original, clone) {
+    if (original.nodeType !== 1 || clone.nodeType !== 1) return;
+
+    try {
+      const computedStyle = getComputedStyle(original);
+      // cssText on a computed style is the serialized declaration in modern
+      // Chromium/Safari — a single read beats enumerating ~400 longhand
+      // properties. Firefox returns "" here, so we fall back on empty.
+      const serialized = computedStyle.cssText;
+      if (serialized) {
+        clone.style.cssText = serialized;
+      } else {
+        const parts = new Array(computedStyle.length);
+        for (let index = 0; index < computedStyle.length; index += 1) {
+          const property = computedStyle[index];
+          parts[index] = `${property}:${computedStyle.getPropertyValue(property)};`;
+        }
+        clone.style.cssText = parts.join("");
+      }
+    } catch (_error) {}
+
+    const originalChildren = original.children;
+    const clonedChildren = clone.children;
+    for (
+      let index = 0;
+      index < originalChildren.length && index < clonedChildren.length;
+      index += 1
+    ) {
+      inlineAll(originalChildren[index], clonedChildren[index]);
+    }
+  }
+
+  function extractFontUrl(srcValue) {
+    const matches = [
+      ...srcValue.matchAll(
+        /url\(["']?([^"')]+)["']?\)(?:\s*format\(["']?([^"')]+)["']?\))?/gi,
+      ),
+    ];
+    if (matches.length === 0) return null;
+    const woff2 = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff2"));
+    if (woff2) return woff2[1];
+    const woff = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff"));
+    if (woff) return woff[1];
+    return matches[0][1];
+  }
+
+  // Cache resolved font URL -> data URI across captures. Fonts on a page
+  // essentially never change, and a batch run emits multiple captures back to
+  // back — without this we'd refetch + re-base64 every time.
+  const fontDataUriCache = new Map();
+  const SRC_DECLARATION_RE = /src\s*:\s*[^;}]+/i;
+
+  async function fetchAsDataUri(url) {
+    if (fontDataUriCache.has(url)) return fontDataUriCache.get(url);
+    let dataUri = null;
+    try {
+      const response = await fetch(url, { mode: "cors", credentials: "omit" });
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size <= MAX_FONT_BYTES) {
+          dataUri = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () =>
+              resolve(typeof reader.result === "string" ? reader.result : null);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
+    } catch (_error) {
+      dataUri = null;
+    }
+    fontDataUriCache.set(url, dataUri);
+    return dataUri;
+  }
+
+  function collectFontFaceRuleTexts() {
+    const rules = [];
+    for (const sheet of document.styleSheets) {
+      let cssRules;
+      try {
+        cssRules = sheet.cssRules;
+      } catch (_error) {
+        continue;
+      }
+      if (!cssRules) continue;
+      for (const rule of cssRules) {
+        const cssText = rule.cssText || "";
+        if (cssText.startsWith("@font-face")) rules.push(cssText);
+      }
+    }
+    return rules;
+  }
+
+  async function buildInlinedFontCss() {
+    const ruleTexts = collectFontFaceRuleTexts();
+    if (ruleTexts.length === 0) return null;
+
+    const resolved = ruleTexts.map((cssText) => {
+      if (!SRC_DECLARATION_RE.test(cssText)) return null;
+      const srcMatch = cssText.match(/src\s*:\s*([^;}]+)[;}]/i);
+      if (!srcMatch) return null;
+      const url = extractFontUrl(srcMatch[1]);
+      if (!url) return null;
+      try {
+        return { cssText, url: new URL(url, document.baseURI).href };
+      } catch (_error) {
+        return null;
+      }
+    });
+
+    const dataUris = await Promise.all(
+      resolved.map((entry) => (entry ? fetchAsDataUri(entry.url) : Promise.resolve(null))),
+    );
+
+    const inlined = [];
+    let totalBytes = 0;
+    for (let index = 0; index < resolved.length; index += 1) {
+      const entry = resolved[index];
+      const dataUri = dataUris[index];
+      if (!entry || !dataUri) continue;
+      const approxBytes = dataUri.length * 0.75;
+      if (totalBytes + approxBytes > MAX_TOTAL_FONT_BYTES) break;
+      totalBytes += approxBytes;
+      inlined.push(entry.cssText.replace(SRC_DECLARATION_RE, `src: url("${dataUri}")`));
+    }
+    return inlined.length > 0 ? inlined.join("\n") : null;
+  }
+
+  function stripExternal(clone) {
+    const images = clone.querySelectorAll("img");
+    for (let index = 0; index < images.length; index += 1) {
+      const src = images[index].getAttribute("src");
+      if (src && !src.startsWith("data:")) images[index].removeAttribute("src");
+    }
+
+    const elements = clone.querySelectorAll("*");
+    for (let index = 0; index < elements.length; index += 1) {
+      const style = elements[index].style.cssText;
+      if (style && style.includes("url(")) {
+        elements[index].style.cssText = style.replace(
+          /url\(["']?(?!data:)[^)"']*["']?\)/gi,
+          "none",
+        );
+      }
+    }
+  }
+
+  function emitScroll() {
+    scrollRaf = 0;
+    if (!scrollForwarding) return;
+    postToTrustedTop({
+      type: "INLINE_EDIT_SCROLL",
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+    });
+  }
+
+  window.addEventListener(
+    "scroll",
+    function () {
+      if (!scrollForwarding || scrollRaf) return;
+      scrollRaf = requestAnimationFrame(emitScroll);
+    },
+    { passive: true, capture: true },
+  );
+
+  async function handleCaptureRequest(event) {
+    const requestId = event.data.requestId;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    function postResult(dataUrl) {
+      postToTrustedTop({
+        type: "INLINE_EDIT_SCREENSHOT_RESULT",
+        requestId,
+        dataUrl,
+        scrollX,
+        scrollY,
+      });
+    }
+
+    try {
+      // Wait for any pending web fonts to resolve so both inline metrics and
+      // the @font-face inlining below see the same loaded faces.
+      if (document.fonts && document.fonts.ready) {
+        try {
+          await document.fonts.ready;
+        } catch (_error) {}
+      }
+
+      const clone = document.documentElement.cloneNode(true);
+      inlineAll(document.documentElement, clone);
+
+      const removedNodes = clone.querySelectorAll("script,link[rel=\"stylesheet\"],style");
+      for (let index = 0; index < removedNodes.length; index += 1) {
+        removedNodes[index].remove();
+      }
+
+      stripExternal(clone);
+
+      // Re-embed web fonts as data-URI @font-face rules so the SVG rasterizer
+      // can resolve them — external font URLs aren't fetched during
+      // foreignObject rendering, which would otherwise force a fallback face
+      // and change text metrics.
+      const inlinedFontCss = await buildInlinedFontCss();
+      if (inlinedFontCss) {
+        const styleEl = document.createElement("style");
+        styleEl.textContent = inlinedFontCss;
+        const head = clone.querySelector("head");
+        if (head) head.appendChild(styleEl);
+        else clone.insertBefore(styleEl, clone.firstChild);
+      }
+
+      const html = new XMLSerializer().serializeToString(clone);
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+        '<foreignObject width="100%" height="100%">' +
+        `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden">` +
+        `<div style="transform:translate(-${scrollX}px,-${scrollY}px);transform-origin:top left">` +
+        html +
+        "</div></div></foreignObject></svg>";
+      const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      const image = new Image();
+      image.onload = function () {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(image, 0, 0);
+        postResult(canvas.toDataURL("image/png"));
+      };
+      image.onerror = function () {
+        postResult(null);
+      };
+      image.src = svgUrl;
+    } catch (_error) {
+      postResult(null);
+    }
+  }
+
+  window.addEventListener("message", function (event) {
+    if (!event.data) return;
+    // Only accept messages from the direct parent frame. Blocks sibling /
+    // unrelated-window postMessage senders that could otherwise reach us.
+    if (event.source !== window.parent) return;
+
+    const trustedParentOrigin = getTrustedParentOrigin(event);
+    if (!trustedParentOrigin) return;
+    trustedTopOrigin = trustedParentOrigin;
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_START") {
+      scrollForwarding = true;
+      emitScroll();
+      return;
+    }
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_STOP") {
+      scrollForwarding = false;
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
+      scrollRaf = 0;
+      return;
+    }
+
+    if (event.data.type !== "INLINE_EDIT_CAPTURE_REQUEST") return;
+
+    handleCaptureRequest(event);
+  });
+})();
+
+
+</script></body>
+</html>
