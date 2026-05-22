@@ -182,26 +182,71 @@ function updateMortarUi() {
 }
 
 // ============== УГЛОМЕР ==============
+function getAimMethod() {
+  return document.querySelector('input[name="aim-method"]:checked')?.value || 'vishka';
+}
+
+function updateAimMethodUI() {
+  const method = getAimMethod();
+  $('aim-fields-vishka').hidden = method !== 'vishka';
+  $('aim-fields-kolimator').hidden = method !== 'kolimator';
+}
+
 function calcAim() {
+  const mil = MORTARS[currentMortar].mil;
+  const method = getAimMethod();
+
+  if (method === 'kolimator') {
+    const mainU = parseAngle($('aim-main-u').value);
+    const azMain = parseAngle($('aim-az-main').value);
+    const azTarget = parseAngle($('aim-az-target').value);
+    if (!isFinite(mainU) || !isFinite(azMain) || !isFinite(azTarget)) {
+      $('aim-result').hidden = true; return;
+    }
+
+    let rawU = mainU - (azMain - azTarget);
+    let U = rawU;
+    let normalisation = '';
+    if (U >= mil) { U = U - mil; normalisation = `У ≥ ${mil} → У − ${mil}`; }
+    else if (U < 0) { U = U + mil; normalisation = `У < 0 → У + ${mil}`; }
+
+    state.aim = { U, mil, method };
+
+    showResult(
+      'aim-result',
+      `У = ${formatAngle(U)}  (${Math.round(U)} тыс.)`,
+      `Формула: У = основной угломер − (азимут ОНС − азимут цели)
+` +
+      `       = ${mainU} − (${azMain} − ${azTarget}) = ${rawU}
+` +
+      (normalisation ? `Нормализация: ${normalisation}
+` : '') +
+      `Система: ${MORTARS[currentMortar].name} (mil = ${mil})`
+    );
+    return;
+  }
+
   const ac = parseAngle($('aim-ac').value);
   const atn = parseAngle($('aim-atn').value);
   if (!isFinite(ac) || !isFinite(atn)) {
-  $('aim-result').hidden = true; return;
+    $('aim-result').hidden = true; return;
   }
-  const mil = MORTARS[currentMortar].mil;
   let U = ac - atn + mil / 2;
   let normalisation = '';
   if (U >= mil) { U = U - mil; normalisation = `У ≥ ${mil} → У − ${mil}`; }
   else if (U < 0) { U = U + mil; normalisation = `У < 0 → У + ${mil}`; }
 
-  state.aim = { U, mil };
+  state.aim = { U, mil, method };
 
   showResult(
     'aim-result',
     `У = ${formatAngle(U)}  (${Math.round(U)} тыс.)`,
-    `Формула: У = А_ц − А_тн + mil/2\n` +
-    `       = ${ac} − ${atn} + ${mil / 2} = ${ac - atn + mil / 2}\n` +
-    (normalisation ? `Нормализация: ${normalisation}\n` : '') +
+    `Формула: У = А_ц − А_тн + mil/2
+` +
+    `       = ${ac} − ${atn} + ${mil / 2} = ${ac - atn + mil / 2}
+` +
+    (normalisation ? `Нормализация: ${normalisation}
+` : '') +
     `Система: ${MORTARS[currentMortar].name} (mil = ${mil})`
   );
 }
@@ -770,9 +815,22 @@ if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded
 
 // Aim
 $('aim-calc').addEventListener('click', calcAim);
-['aim-ac', 'aim-atn'].forEach(id => {
+['aim-ac', 'aim-atn', 'aim-main-u', 'aim-az-main', 'aim-az-target'].forEach(id => {
   const el = $(id); if (el) el.addEventListener('input', calcAim);
 });
+document.querySelectorAll('input[name="aim-method"]').forEach(el => {
+  el.addEventListener('change', () => { updateAimMethodUI(); calcAim(); });
+});
+$('aim-reset').addEventListener('click', () => {
+  ['aim-ac', 'aim-atn', 'aim-dist', 'aim-main-u', 'aim-az-main', 'aim-az-target'].forEach(id => {
+    const el = $(id); if (el) el.value = '';
+  });
+  const def = document.querySelector('input[name="aim-method"][value="vishka"]');
+  if (def) def.checked = true;
+  updateAimMethodUI();
+  $('aim-result').hidden = true;
+});
+updateAimMethodUI();
 
 // Range
 $('r-calc').addEventListener('click', calcRange);

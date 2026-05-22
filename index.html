@@ -164,20 +164,49 @@
   <!-- УГЛОМЕР -->
   <section id="panel-aim" class="panel active">
     <h2>Расчёт угломера</h2>
-    <p class="hint">У = А<sub>ц</sub> − А<sub>тн</sub> + mil/2. Если У ≥ mil → −mil. Если У &lt; 0 → +mil. Для текущего орудия mil = 60-00 (6000).</p>
+    <p class="hint">Выберите способ расчёта. Для режима «Прицельная вешка»: У = А<sub>ц</sub> − А<sub>тн</sub> + mil/2. Для режима «Орудийный колиматор»: У = основной угломер − (азимут основного направления стрельбы − азимут цели).</p>
 
-    <div class="grid">
-      <label>Дирекционный угол цели А<sub>ц</sub>
-        <input type="text" id="aim-ac" inputmode="decimal" placeholder="напр. 20-00 или 2000" data-testid="input-aim-ac" />
-        <span class="sub">формат XX-XX или число (тысячные)</span>
+    <div class="method-switch" role="radiogroup" aria-label="Способ расчёта угломера">
+      <label class="method-switch__item">
+        <input type="radio" name="aim-method" value="vishka" checked data-testid="input-aim-method-vishka" />
+        <span>Расчёт через прицельную вешку</span>
       </label>
-      <label>Дирекционный угол точки наводки А<sub>тн</sub>
-        <input type="text" id="aim-atn" inputmode="decimal" placeholder="напр. 10-00 или 1000" data-testid="input-aim-atn" />
+      <label class="method-switch__item">
+        <input type="radio" name="aim-method" value="kolimator" data-testid="input-aim-method-kolimator" />
+        <span>Расчёт через орудийный колиматор</span>
       </label>
-      <label>Дальность до цели, м (опционально)
-        <input type="number" id="aim-dist" inputmode="decimal" placeholder="напр. 1200" data-testid="input-aim-dist" />
-        <span class="sub">используется во вкладке «Итог»</span>
-      </label>
+    </div>
+
+    <div id="aim-fields-vishka">
+      <div class="grid">
+        <label>Дирекционный угол цели А<sub>ц</sub>
+          <input type="text" id="aim-ac" inputmode="decimal" placeholder="напр. 20-00 или 2000" data-testid="input-aim-ac" />
+          <span class="sub">формат XX-XX или число (тысячные)</span>
+        </label>
+        <label>Дирекционный угол точки наводки А<sub>тн</sub>
+          <input type="text" id="aim-atn" inputmode="decimal" placeholder="напр. 10-00 или 1000" data-testid="input-aim-atn" />
+        </label>
+        <label>Дальность до цели, м (опционально)
+          <input type="number" id="aim-dist" inputmode="decimal" placeholder="напр. 1200" data-testid="input-aim-dist" />
+          <span class="sub">используется во вкладке «Итог»</span>
+        </label>
+      </div>
+    </div>
+
+    <div id="aim-fields-kolimator" hidden>
+      <div class="grid">
+        <label>Основной угломер
+          <input type="text" id="aim-main-u" inputmode="decimal" placeholder="напр. 30-00 или 3000" data-testid="input-aim-main-u" />
+          <span class="sub">формат XX-XX или число (тысячные)</span>
+        </label>
+        <label>Азимут основного направления стрельбы
+          <input type="text" id="aim-az-main" inputmode="decimal" placeholder="напр. 12-00 или 1200" data-testid="input-aim-az-main" />
+        </label>
+        <label>Азимут цели
+          <input type="text" id="aim-az-target" inputmode="decimal" placeholder="напр. 14-50 или 1450" data-testid="input-aim-az-target" />
+        </label>
+
+      </div>
     </div>
 
     <div class="actions">
