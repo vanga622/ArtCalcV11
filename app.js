@@ -746,6 +746,16 @@ function snapshotCurrentForm() {
   };
 }
 
+
+function recalcAllTabs() {
+  calcAim();
+  if (typeof syncWindDcFromAim === 'function') syncWindDcFromAim();
+  calcRange();
+  calcDir();
+  calcHeight();
+  buildSolution();
+}
+
 function applyPresetToTabs(p) {
   const set = (id, v) => { if (isFinite(v)) { $(id).value = v; markAutofilled(id, false); } };
   set('r-dxt', p.dxt);
@@ -757,6 +767,7 @@ function applyPresetToTabs(p) {
   set('h-dph', p.dph);
   set('s-p0', p.p0);
   state.table = { source: 'preset', ...p };
+  recalcAllTabs();
 }
 
 // ============== ВКЛАДКИ ==============
@@ -921,6 +932,7 @@ $('h-calc').addEventListener('click', calcHeight);
     applyTableLookup(charge, D);
     // Автоподстановка в поле «дальность до цели» во вкладке «Угломер» — через систему зеркалирования
     syncMirrorField('global-dist', String(D));
+    recalcAllTabs();
   };
   $('global-apply').addEventListener('click', applyGlobal);
   $('global-charge').addEventListener('change', () => {
@@ -951,6 +963,7 @@ $('h-calc').addEventListener('click', calcHeight);
 
   // Виджет разложения ветра
   installWindWidget();
+  installAimToWindSync();
 
   // Первичный рендер таблицы и пресеты
   updateChargeOptions(currentMortar);
@@ -1046,31 +1059,32 @@ function recalcWind() {
   sectorPath.setAttribute('d', `M 0 0 L ${p0x.toFixed(2)} ${p0y.toFixed(2)} A ${sectorR} ${sectorR} 0 0 0 ${p1x.toFixed(2)} ${p1y.toFixed(2)} Z`);
 
   lastWindResult = { Aw, Wx: r.Wx, Wz: r.Wz, W, method: windMethod };
+  syncWindResultToCalcs();
   applyBtn.disabled = false;
 }
 
-function applyWindToCalcs() {
+function syncWindResultToCalcs() {
   if (!lastWindResult) return;
   const { Aw, Wx, Wz, W } = lastWindResult;
-  // Ручные продольный/боковой
   $('r-wx').value = String(Wx);
   $('d-wz').value = String(Wz);
-  // Обнулим дублирующие поля ввода W/Aw — разборка уже сделана
   $('r-wind').value = String(W);
   $('d-wind').value = String(W);
   $('r-aw').value = formatAngle(Aw);
   $('d-aw').value = formatAngle(Aw);
-  // Переключатели единиц в «тысячные»
   if ($('r-aw-unit')) $('r-aw-unit').value = 'tys';
   if ($('d-aw-unit')) $('d-aw-unit').value = 'tys';
-  // Пометка 'synced' на всех этих полях
   ['r-wind','d-wind','r-aw','d-aw','r-wx','d-wz'].forEach(id => {
     const el = $(id);
     if (el) el.classList.add('synced');
   });
   calcRange();
   calcDir();
-  // Визуальный фидбэк на кнопке
+}
+
+function applyWindToCalcs() {
+  if (!lastWindResult) return;
+  syncWindResultToCalcs();
   const btn = $('w-apply');
   const old = btn.textContent;
   btn.textContent = '✓ Применено';
@@ -1115,6 +1129,50 @@ function installWindWidget() {
 
   $('w-apply').addEventListener('click', applyWindToCalcs);
 }
+// ============== АВТО-ПІДСТАНОВКА Дц У ВІДЖЕТ ВЕТРА ==============
+// Читає активний режим «Угломер» та копіює відповідне поле в w-dc.
+// Режим «vishka»    → aim-ac      (Дирекційний кут цілі Ац)
+// Режим «kolimator» → aim-az-target (Азимут цілі)
+function syncWindDcFromAim() {
+  const method = document.querySelector('input[name="aim-method"]:checked')?.value || 'vishka';
+  const srcId = method === 'kolimator' ? 'aim-az-target' : 'aim-ac';
+  const srcUnit = method === 'kolimator' ? 'aim-az-target-unit' : null;
+  const srcEl = $(srcId);
+  if (!srcEl) return;
+
+  const val = srcEl.value.trim();
+  if (!val) return; // не перезаписуємо порожнім значенням
+
+  const wDc = $('w-dc');
+  if (!wDc) return;
+  // Якщо поле вітру вже містить точно таке саме значення — не дублюємо
+  if (wDc.value.trim() === val) return;
+
+  wDc.value = val;
+
+  // Одиниці: у aim-ac/aim-az-target немає окремого селектора одиниць —
+  // вони використовують формат тисячних (XX-XX або число).
+  // Встановлюємо w-dc-unit в 'tys' (тисячні).
+  const unitEl = $('w-dc-unit');
+  if (unitEl) unitEl.value = 'tys';
+
+  recalcWind();
+}
+
+function installAimToWindSync() {
+  // Слухаємо зміни у полях Угломера
+  ['aim-ac', 'aim-az-target'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('input', syncWindDcFromAim);
+  });
+  // Слухаємо перемикання режиму Угломера
+  document.querySelectorAll('input[name="aim-method"]').forEach(el => {
+    el.addEventListener('change', syncWindDcFromAim);
+  });
+  // При першому відкритті — підставляємо одразу
+  syncWindDcFromAim();
+}
+
 
 // Экспорт для тестов
 if (typeof module !== 'undefined') {
